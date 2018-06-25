@@ -1,5 +1,6 @@
 # data-labeling-machine-learning
-To gather data for SVM training we will be using MATLAB image processing toolbox to:
-  1. Convert videos to images
-  2. Crop out ROI's obtained from Ground Truth Labeler
-  3. Filter images to train an SVM using python
+This project was created to facilitate the cropping of images for SVM training. MATLAB is first used to convert a video into images. A small program created in c++ is then used to crop and store selected ROIs as positive and negative images.  
+
+Work under progress: 
+  The C++ program will be able to store cropped out images into corresponding folders and to train an SVM with opencv.   
+

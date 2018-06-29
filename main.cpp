@@ -1,5 +1,6 @@
 #include <iostream>
 #include <stdlib.h>
+#include <stdio.h>
 #include <sstream>
 #include <string>
 #include <stdint.h>
@@ -8,6 +9,7 @@
 #include <windows.h>
 #include <WinUser.h>
 #include <vector> 
+#include <boost/filesystem.hpp>
 #include <strsafe.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -17,11 +19,13 @@
 
 using namespace std;  
 using namespace cv;
+using namespace boost::filesystem;
 
 //global variables
 vector<Mat> positives; 
 vector<Mat> negatives; 
-Mat image, tImg; 
+Mat image; 
+Mat tImg; 
 Point p1L, p2L; 
 Point p1R, p2R; 
 bool drawingP = false;
@@ -67,10 +71,10 @@ void mouseValues(int event, int x, int y, int flags, void* param) {
 			img = image.clone();
 			rectangle(img, p1L, p2L, Scalar(255, 0, 0), 1);
 			imshow("image", img);
-			Mat roi(image, Rect(p1L, p2L)); 
+			Mat roi(image, Rect(p1L, p2L));
+			imshow("roiL", roi);
 			resize(roi, roi, Size(80, 80));
 			positives.push_back(roi); 
-			imshow("roiL", roi); 
 			break;
 		}
 		case CV_EVENT_RBUTTONDOWN: 
@@ -94,9 +98,10 @@ void mouseValues(int event, int x, int y, int flags, void* param) {
 			rectangle(img, p1R, p2R, Scalar(0, 0, 255), 1);
 			imshow("image", img);
 			Mat roi(image, Rect(p1R, p2R));
+			imshow("roiR", roi);
 			resize(roi, roi, Size(80, 80)); 
 			negatives.push_back(roi); 
-			imshow("roiR", roi);
+			
 			break;
 		}
 	}
@@ -108,39 +113,66 @@ int main() {
 	int eraseROI = -1; 
 	int pNum = 0;
 	int nNum = 0;
+	int iPos = 0;
+	int iNeg = 0;
 	char pName[40]; 
 	char nName[40]; 
 	string picDir;
 	string cDir; 
 	//string posDir; 
 	//string negDir; 
-	vector<string> v; 
+	vector<string> v;
+	vector<string> t;
+	WIN32_FIND_DATA data;
+	HANDLE hFind;
 	//ask for the directory of images
 	cout << "What is location of the pictures: " << endl;
 	getline(cin, picDir);
 	cDir = picDir; 
-	//negDir = picDir; 
-	picDir.append("\\*"); 
+    //picDir.append("\\*"); 
 	cDir.append("\\");
-	//negDir.append("\\");
-	cDir.append("trainning_imgs"); 
-	//negDir.append("negatives"); 
-	CreateDirectory(cDir.c_str(), NULL); 
-	//CreateDirectory(negDir.c_str(), NULL);
-	
-	WIN32_FIND_DATA data;
-	HANDLE hFind;
+	cDir.append("training_imgs"); 
+	if (!exists(cDir.c_str())) {
+		create_directory(cDir.c_str());
+	}
+
+	//Get the name of all the images 
+	string imgName;
+	path p1(picDir.c_str());
+	for (directory_iterator d(p1); d != directory_iterator(); ++d) {
+		imgName = d->path().filename().string();
+		v.push_back(imgName);
+	}
+
+	//Get the names of already cropped images 
+	path p(cDir.c_str());
+	directory_iterator start(p); 
+	for (start; start != directory_iterator(); ++start) {
+		imgName = start->path().filename().string(); 
+		t.push_back(imgName); 
+	}
+
+	//Get the number of neg and pos cropped images
+	for (int i = 0; i < t.size(); i++) {
+		imgName = t.at(i);
+		if (imgName.find("pos") != string::npos)
+			iPos++;
+		else if (imgName.find("neg") != string::npos)
+			iNeg++;
+	}
+
+	cout << "There are " << t.size() << " end. " << endl; 
+	cout << iPos << " positives" << endl;
+	cout << iNeg << " negatives" << endl; 
+
 	//look for the first file in the folder
 	//get the name of each file
-	if ((hFind = FindFirstFile(picDir.c_str(), &data)) != INVALID_HANDLE_VALUE) {
-		do {
-			v.push_back(data.cFileName); 
-		} while (FindNextFile(hFind, &data) != 0);   //continue until there are no more files
-		FindClose(hFind); 
-	}
+	
+
+
 	string dot = ".PNG";
 	cout << "What is the image format? (Example: .jpg)" << endl;
-	cin >> dot; 
+	getline(cin, dot); 
 	string dir; 
 	size_t found; 
 	//look for those files that have a .PNG extension
@@ -149,13 +181,12 @@ int main() {
 		dir = v.at(i); 
 		//select images with .PNG extension
 		if (dir.find(dot) != string::npos) {
-			picDir.erase(picDir.end()-2, picDir.end());
+			//picDir.erase(picDir.end()-1, picDir.end());
 			picDir.append("\\"); 
 			picDir.append(dir); 
 			cout << "\n" << picDir << " is an image" << endl;
 			//read image with opencv
-			image = cv::imread(picDir);
-			tImg = image; 
+			image = cv::imread(picDir); 
 			namedWindow("image");
 			//allow user to select roi
 			cvSetMouseCallback("image", mouseValues, &image);
@@ -187,161 +218,148 @@ int main() {
 						}
 					}
 					else if (eraseROI == 3) {
-						
-						if (pNum >= 10 && nNum >= 10) {
+						/*get the name of all cropped images*/
+						directory_iterator s(p);
+						vector<string> pName;
+						vector<string> nName; 
+						vector<Mat> pImg; 
+						vector<Mat> nImg; 
+						Mat temp; 
+						for (s; s != directory_iterator(); ++s) {
+							imgName = s->path().filename().string();
+							if (imgName.find("pos") != string::npos) {
+								pName.push_back(imgName);
+								temp = imread(s->path().string(), 0); 
+								pImg.push_back(temp);
+							}
+							else if (imgName.find("neg") != string::npos) {
+								nName.push_back(imgName);
+								temp = imread(s->path().string(), 0);
+								nImg.push_back(temp);
+							}
+						}
+
+						if (pName.size() >= 10 && nName.size() >= 10) {
 							cout << "Collecting data.." << endl; 
-							const int nLabels = pNum + nNum;
-							
 							int fNum = 0;
 							int pixNum = 0; 
-							int dataNum = pNum / 10;
-							if (nNum > pNum) {
-								dataNum = pNum / 10;  
+							int dataNum; 
+				
+							//just in case
+							/*get the number of usable images*/
+							if (pName.size() < 20 || nName.size() < 20)  {
+								dataNum = 10; 
+							}
+							else if (pName.size() < 30 || nName.size() < 30) {
+								dataNum = 20;
+							}
+							else if (pName.size() < 40 || nName.size() < 40) {
+								dataNum = 30;
+							}
+							else if (pName.size() < 50 || nName.size() < 50) {
+								dataNum = 40;
 							}
 							else{
-								dataNum = nNum / 10;
+								dataNum = 100;
+								cout << "Only the first 100 images will be used" << endl; 
 							}
 
-							Mat training_mat(dataNum*2, 80 * 80, CV_32FC1);
-							cout << dataNum << " number of images to train" << endl; 
+							cout << "Preparing trainning Matrix" << endl; 
+							Mat tMat(pImg.size() + pImg.size(), 80 * 80, CV_32FC1);
+
+							int ii = 0;
+							int i; 
+							for (i = 0; i < pImg.size(); i++) {
+								ii = 0;
+								temp = pImg.at(i); 
+								for (int j = 0; j < temp.rows; j++) {
+									for (int k = 0; k < temp.cols; k++) {
+										tMat.at<float>(i, ii++) = float(temp.at<uchar>(j, k));
+									}
+								}
+							} 
+							for (int a = i; a < i + nImg.size(); a++) {
+								ii = 0;
+								temp = nImg.at(a - i);
+								for (int j = 0; j < temp.rows; j++) {
+									for (int k = 0; k < temp.cols; k++) {
+										tMat.at<float>(i, ii++) = float(temp.at<uchar>(j, k));
+									}
+								}
+							}
+							tMat.convertTo(tMat, CV_32FC1);
+
+							cout << "Preparing labels " << endl; 
+							int kPos = 0;
+							int kNeg = 0;
 							string name; 
 							string pos = "pos";
 							string neg = "neg";
-							float labels10[10];
-							float labels20[20]; 
-							float labels30[30]; 
-							float labels40[40]; 
-							float labels100[100]; 
-							//vector<float> labels; 
-							if ((hFind = FindFirstFile(picDir.c_str(), &data)) != INVALID_HANDLE_VALUE) {
-								do {
-									name = data.cFileName; 
-									tImg = imread(name, CV_LOAD_IMAGE_GRAYSCALE);
-									//Mat hsv; 
-									//cvtColor(tImg, hsv, COLOR_BGR2HSV);
-									//do some filtering here 
-									//add the image to the training mat
-									for (int i = 0; i < tImg.rows; i++) {
-										for (int j = 0; j < tImg.cols; j++) {
-											training_mat.at<float>(fNum, pixNum++) = tImg.at<uchar>(i, j); 
-										}
-									}
-									switch (dataNum) {
-										//fill a labels mat with 1 for every positive and -1 for every negative image
-									case 1: {
-												if (name.find(pos) != string::npos) labels10[fNum] = 1;
-												else								labels10[fNum] = -1;
-									}
-									case 2: {
-												if (name.find(pos) != string::npos) labels20[fNum] = 1;
-												else								labels20[fNum] = -1;
-									}
-									case 3: {
-												if (name.find(pos) != string::npos) labels30[fNum] = 1;
-												else								labels30[fNum] = -1;
-									}
-									case 4: {
-												if (name.find(pos) != string::npos) labels40[fNum] = 1;
-												else								labels40[fNum] = -1;
-									}
-									case 10: {
-												if (name.find(pos) != string::npos) labels100[fNum] = 1;
-												else								labels100[fNum] = -1;
-									}
-									default: {
-										cout << "Data number not supported" << endl;
-										break;
-									}
-
-									}
-									fNum++;
-								} while (FindNextFile(hFind, &data) != 0 && (fNum < 2*dataNum*10));   //continue until there are no more files
-								FindClose(hFind);
+							Mat labels(pName.size() + nName.size(), 1, CV_32FC1);
+							int x; 
+							for (x = 0; x < pName.size(); x++) {
+								labels.at<float>(x, 0) = 1.0; 
 							}
-
-							//setting up the parameters
+							int y = x; 
+							for (y; y < x + nName.size(); y++) {
+								labels.at<float>(y, 0) = -1.0; 
+							}
+							
+							
+							cout << "training the machine" << endl; 
 							CvSVMParams params;
 							params.svm_type = CvSVM::C_SVC;
 							params.kernel_type = CvSVM::LINEAR;
+							params.gamma = 3;
+							params.degree = 3;
 							params.term_crit = cvTermCriteria(CV_TERMCRIT_ITER, 100, 1e-6);
+							CvSVM svm;
+							svm.train(tMat, labels, Mat(), Mat(), params);
 
-							cout << "Training your SVM.." << endl;
+							/*save the xml and load it*/
+							svm.save("gate_classifier.xml");
+							svm.load("gate_classifier.xml");
 
-							//training
-							CvSVM SVM;
+							/*test the trained data*/
+							string tDir; 
+							string tName; 
+							cout << "testing the classifier" << endl; 
+							cout << "Enter the path to the image you want to use: " << endl; 
+							cin >> tDir;  
+							Mat testImg = imread(tDir, 0); 
+							imshow("Test Image", testImg);
+							resize(testImg, testImg, Size(80, 80));
+							testImg = testImg.reshape(0, 1);
+							testImg.convertTo(testImg, CV_32FC1);
+							float res = svm.predict(testImg);
+							if (res > 0)
+								cout << endl << "Found";
+							else
+								cout << endl << "Not Found";
+							waitKey(0);
 
-							switch (dataNum) {
-								//fill a labels mat with 1 for every positive and -1 for every negative image
-								case 1: {
-									Mat labels_mat(fNum, 1, CV_32SC1, labels10);
-									SVM.train(training_mat, labels_mat, Mat(), Mat(), params);
-									SVM.save(picDir.c_str());
-								}
-								case 2: {
-									Mat labels_mat(fNum, 1, CV_32SC1, labels20);
-									SVM.train(training_mat, labels_mat, Mat(), Mat(), params);
-									SVM.save(picDir.c_str());
-								}
-								case 3: {
-									Mat labels_mat(fNum, 1, CV_32SC1, labels30);
-									SVM.train(training_mat, labels_mat, Mat(), Mat(), params);
-									SVM.save(picDir.c_str());
-								}
-								case 4: {
-									Mat labels_mat(fNum, 1, CV_32SC1, labels40);
-									SVM.train(training_mat, labels_mat, Mat(), Mat(), params);
-									SVM.save(picDir.c_str());
-								}
-								case 10: {
-									Mat labels_mat(fNum, 1, CV_32SC1, labels100);
-									SVM.train(training_mat, labels_mat, Mat(), Mat(), params);
-									SVM.save(picDir.c_str());
-								}
-								default: {
-									cout << "Data number not supported" << endl; 
-									break; 
-								}
-
-							}
-							//test on sample data
-							/*
-							for (int i = 0; i < image.rows; ++i)
-								for (int j = 0; j < image.cols; ++j)
-								{
-									Mat sampleMat = (Mat_<float>(1, 2) << j, i);
-									float response = svm->predict(sampleMat);
-									if (response == 1)
-										image.at<Vec3b>(i, j) = green;
-									else if (response == -1)
-										image.at<Vec3b>(i, j) = blue;
-								}
-						    */
-							//save the classifier
-							//svm.save("svm_filename"); // saving
-							//svm.load("svm_filename"); // loading
 						}
 						else {
 							cout << "There need to be at least ten new positive images and 10 new negative images" << endl;
 							cout << "to train your SVM" << endl; 
 						}
+						
 					}
 				}
 			}
-			picDir.erase(picDir.end() - dir.size() + 1, picDir.end());
+			picDir.erase(picDir.end() - dir.size(), picDir.end());
+			cout << "\n" << picDir << " is also an image" << endl;
 			//write images to a folder
-			SetCurrentDirectory(cDir.c_str());
 			for (int i = 0; i < positives.size(); i++) {
 				sprintf_s(pName, "pos%d.PNG", pNum++); 
-				imwrite(pName, positives.at(i)); 
+				imwrite(cDir + pName, positives.at(i)); 
 			}
 			positives.erase(positives.begin(), positives.end()); 
-			//SetCurrentDirectory(negDir.c_str());
 			for (int i = 0; i < negatives.size(); i++) {
 				sprintf_s(nName, "neg%d.PNG", nNum++);
-				imwrite(nName, negatives.at(i));
+				imwrite(cDir + nName, negatives.at(i));
 			}
 			negatives.erase(negatives.begin(), negatives.end());
-
 		}
 	}
 	waitKey(0); 

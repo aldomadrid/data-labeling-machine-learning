@@ -1,8 +1,9 @@
 # data-labeling-machine-learning
-This project was created to facilitate the cropping of images for SVM training. MATLAB is first used to convert a video into images. A small program created in C++ will then be used to crop and store selected ROIs as positive and negative images.  
+This project was created to facilitate the cropping of images for SVM training. 
 
-Work under progress: 
-  The C++ program will be able to train an SVM as soon as 10 positives and 10 negatives are selected from images. The 
-  progam will also test the classifier on an image and ask you if you want to continue labeling data. 
-  This program can currently save all the selected ROIs in a folder, resize, and label them as negatives or positives.  
+First, MATLAB is first used to convert a video into images. Then, the small program written in C++ allows the user to select ROIs over objects of interest, classified as positive ROIs, and those not of interest, classified as negative ROIs.
 
+To select a positive ROI use the left button of your mouse. To select a negative ROI use the right button of your mouse. Press space for options. 
+
+
+This program was constructed using boost c++ libraries and opencv 2.4.13. 

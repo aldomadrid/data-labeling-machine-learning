@@ -29,19 +29,21 @@ grabImg::~grabImg() {
 	cout << "grabber deconstructor called" << endl; 
 }
 
-int grabImg::setDirectory(string &dir) {
-	if (exists(dir)) {
-		directory = dir;
-		cout << "Directory exists" << endl;
-		path p(directory);
-		start = directory_iterator(p);
-		return 1;
-	}
-	else {
-		cout << "Directory does not exists" << endl;
-		return 0;
-	}
+void grabImg::setDirectory(string &dir) {
+	do {
+		cout << "Enter image directory: " << endl;
+		getline(cin, directory);
+
+		if (exists(directory))
+			cout << "Directory exists" << endl;
+		else 
+			cout << "Directory does not exists" << endl;
+
+	}while(!exists(directory)); 
+	path p(directory);
+	start = directory_iterator(p);	
 }
+
 
 string grabImg::getDirectory() {
 	return directory;

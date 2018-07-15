@@ -16,7 +16,7 @@ class grabImg {
 public:
 	grabImg(); 
 	virtual ~grabImg();
-	int setDirectory(string &dir);
+	void setDirectory(string &dir);
 	string getDirectory();
 	void getImg(Mat &img, string &format);
 	void getNextImg(Mat &img, string &format);

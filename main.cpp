@@ -122,14 +122,11 @@ void mouseValues(int event, int x, int y, int flags, void* param) {
 int main(){
 	grabImg* grabber = new grabImg;
 	labeler* label = new labeler; 
-	trainer trn; 
+	trainer* trn = new trainer; 
     string dir;
 	string labeledDir; 
 	string format;
-	do {
-		cout << "Enter image directory: " << endl;
-		getline(cin, dir);
-	} while (grabber->setDirectory(dir) != 1);
+	grabber->setDirectory(dir); 
 	labeledDir = label->checkLabeled(dir); 
 	cout << "What is the image format: " << endl; 
 	cin >> format; 
@@ -159,8 +156,8 @@ int main(){
 				break; 
 			}
 			else {
-				trn.prepare(labeledDir); 
-				trn.train(); 
+				trn->prepare(labeledDir); 
+				trn->train(); 
 				cout << "Trained" << endl; 
 				//cout << "testing..." << endl; 
 				//trn.test(img); 
